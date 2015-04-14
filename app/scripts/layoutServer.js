@@ -1,4 +1,4 @@
-$.layoutServer = function(options) {
+$.windowManager = function(options) {
 
   // use strict, and do not use extend,
   // which makes array watching impossible. 
@@ -17,12 +17,37 @@ $.layoutServer = function(options) {
   this.init();
 };
 
-$.layoutServer.prototype = {
+$.windowManager.prototype = {
   init: function () {
     this.element.appendTo(this.appendTo);
     this.calculateLayout();
     this.bindEvents();
   },
+
+  uuid: function() {
+    'xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx'.replace(/[xy]/g, function(c) {
+      var r = Math.random()*16|0, v = c == 'x' ? r : (r&0x3|0x8);
+      return v.toString(16);
+    });
+  },
+    
+  // Defines Node data structure on workspace
+  Node: function() {
+    var ws = this;
+    var Node = function(type, parent) {
+      this.ws = this;
+      this.id = ws.uuid();      
+      if (typeof parent !== 'undefined') {
+	this.parent = parent
+      }
+    }
+    Node.prototype = {
+      uuid: ws.uuid;
+      }
+    }
+    return Node;
+  }(),
+
   calculateLayout: function(resetting) {
     var _this = this,
     layout;
@@ -115,7 +140,7 @@ $.layoutServer.prototype = {
     function addSibling(node, indexDifference) {
       if (nodeIsNotRoot) {
         var siblingIndex = nodeIndex + indexDifference,
-        newSibling = _this.newNode(node.type, node);
+        newSibling = new _this.Node(node.type, node);
 
         node.parent.children.splice(siblingIndex, 0, newSibling);
         _this.layout.push(newSibling);
@@ -131,7 +156,7 @@ $.layoutServer.prototype = {
       // Locally mutate the tree to accomodate a 
       // sibling of another kind, transforming
       // both the target node and its parent.
-      var newParent = _this.newNode(node.type, node.parent);
+      var newParent = new _this.Node(node.type, node.parent);
 
       // Flip its type while keeping
       // the same id.
@@ -139,7 +164,7 @@ $.layoutServer.prototype = {
 
       // Create a new node (which will be childless)
       // that is also a sibling of this node.
-      newSibling = _this.newNode(node.type, newParent);
+      newSibling = new _this.Node(node.type, newParent);
 
       // maintain array ordering.
       newParent.children = [];
@@ -255,21 +280,6 @@ $.layoutServer.prototype = {
 
     _this.layoutDescription = root;
     _this.calculateLayout();
-  },
-
-  newNode: function(type, parent) {
-    if (typeof parent === 'undefined') {
-      return {
-        type: type,
-        id: $.genUUID()
-      };
-    } else {
-      return {
-        type: type,
-        id: $.genUUID(),
-        parent: parent
-      };
-    }
   },
 
   getSlotFromAddress: function(address) {
@@ -391,7 +401,7 @@ $.layoutServer.prototype = {
 
     if (!targetSlot.window) {
       windowConfig.slotAddress = targetSlot.layoutAddress;
-      windowConfig.id = windowConfig.id || $.genUUID();
+      windowConfig.id = windowConfig.id || this.Node.uuid();
 
       jQuery.publish("windowAdded", {id: windowConfig.id, slotAddress: windowConfig.slotAddress});
 
